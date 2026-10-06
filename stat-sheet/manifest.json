@@ -1,0 +1,15 @@
+{
+  "name": "D&D Stat Sheet",
+  "version": "1.0.0",
+  "manifest_version": 1,
+  "description": "A compact character sheet with auto-calculated skills, saves, and one-click rolls",
+  "author": "Ness",
+  "icon": "icon.svg",
+  "action": {
+    "title": "Stat Sheet",
+    "icon": "icon.svg",
+    "popover": "index.html",
+    "width": 380,
+    "height": 640
+  }
+}

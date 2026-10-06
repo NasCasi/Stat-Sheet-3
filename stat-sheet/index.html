@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Stat Sheet</title>
+<style>
+  :root {
+    --bg: #1e1b2e;
+    --panel: #292438;
+    --panel-2: #332c47;
+    --accent: #a78bfa;
+    --accent-dim: #7c3aed;
+    --text: #ece9f7;
+    --text-dim: #a79fc2;
+    --good: #4ade80;
+    --bad: #f87171;
+    --border: #3f3856;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 13px;
+  }
+  #app { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+  }
+  .card h2 {
+    margin: 0 0 8px 0;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+  }
+
+  input[type=text], input[type=number] {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 4px 6px;
+    font-size: 13px;
+    width: 100%;
+  }
+  input[type=number] { text-align: center; }
+  label { color: var(--text-dim); }
+
+  .name-row { display: flex; gap: 8px; align-items: center; }
+  .name-row input { font-size: 15px; font-weight: 600; }
+
+  .hp-row { display: flex; gap: 6px; margin-top: 8px; }
+  .hp-field { flex: 1; text-align: center; }
+  .hp-field label { display: block; font-size: 10px; margin-bottom: 2px; }
+  .hp-field input { text-align: center; }
+
+  .abilities-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .ability {
+    background: var(--panel-2);
+    border-radius: 8px;
+    padding: 6px;
+    text-align: center;
+  }
+  .ability label { font-size: 10px; text-transform: uppercase; }
+  .ability .score { margin: 3px 0; }
+  .ability .mod {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+    margin: 2px 0;
+  }
+  .ability button { width: 100%; }
+
+  .prof-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .prof-row input { width: 60px; }
+
+  button.roll {
+    background: var(--accent-dim);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  button.roll:hover { background: var(--accent); }
+  button.roll:active { transform: scale(0.96); }
+
+  .list-row {
+    display: grid;
+    grid-template-columns: 18px 18px 1fr 32px 44px;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .list-row:last-child { border-bottom: none; }
+  .list-row .skill-name { font-size: 12.5px; }
+  .list-row .ability-tag {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-align: center;
+  }
+  .list-row .total {
+    font-weight: 700;
+    text-align: center;
+    color: var(--accent);
+  }
+  .list-row input[type=checkbox] { width: 15px; height: 15px; }
+  .list-row input[title="Expertise"] { accent-color: #fbbf24; }
+
+  .log {
+    max-height: 160px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 4px;
+  }
+  .log-entry {
+    font-size: 12px;
+    background: var(--panel-2);
+    border-radius: 6px;
+    padding: 4px 6px;
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .log-entry .who { color: var(--text-dim); }
+  .log-entry .crit { color: var(--good); font-weight: 700; }
+  .log-entry .fumble { color: var(--bad); font-weight: 700; }
+  .log-empty { color: var(--text-dim); font-size: 12px; text-align: center; padding: 6px 0; }
+
+  .section-toggle {
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .collapsed .body { display: none; }
+  .chev { transition: transform 0.15s; color: var(--text-dim); }
+  .collapsed .chev { transform: rotate(-90deg); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="card">
+    <div class="name-row">
+      <input id="charName" type="text" placeholder="Character name" />
+    </div>
+    <div class="hp-row">
+      <div class="hp-field">
+        <label>HP</label>
+        <input id="hpCurrent" type="number" value="10" />
+      </div>
+      <div class="hp-field">
+        <label>Max HP</label>
+        <input id="hpMax" type="number" value="10" />
+      </div>
+      <div class="hp-field">
+        <label>Temp HP</label>
+        <input id="hpTemp" type="number" value="0" />
+      </div>
+    </div>
+    <div class="prof-row">
+      <label for="profBonus">Proficiency Bonus</label>
+      <input id="profBonus" type="number" value="2" />
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Ability Scores</h2>
+    <div class="abilities-grid" id="abilitiesGrid"></div>
+  </div>
+
+  <div class="card">
+    <h2>Saving Throws</h2>
+    <div id="savesList"></div>
+  </div>
+
+  <div class="card">
+    <h2>Skills</h2>
+    <div id="skillsList"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-toggle" id="logToggle">
+      <h2 style="margin:0">Roll Log (party)</h2>
+      <span class="chev">▾</span>
+    </div>
+    <div class="body">
+      <div class="log" id="log"><div class="log-empty">No rolls yet</div></div>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
+
+const ABILITIES = [
+  ["str", "STR"], ["dex", "DEX"], ["con", "CON"],
+  ["int", "INT"], ["wis", "WIS"], ["cha", "CHA"]
+];
+const SAVES = ABILITIES;
+const SKILLS = [
+  ["Acrobatics", "dex"], ["Animal Handling", "wis"], ["Arcana", "int"],
+  ["Athletics", "str"], ["Deception", "cha"], ["History", "int"],
+  ["Insight", "wis"], ["Intimidation", "cha"], ["Investigation", "int"],
+  ["Medicine", "wis"], ["Nature", "int"], ["Perception", "wis"],
+  ["Performance", "cha"], ["Persuasion", "cha"], ["Religion", "int"],
+  ["Sleight of Hand", "dex"], ["Stealth", "dex"], ["Survival", "wis"]
+];
+const ROLL_CHANNEL = "rodeo.owlbear.statsheet/roll";
+const STORAGE_KEY = "obr-statsheet-v1";
+
+const defaultState = {
+  name: "",
+  hp: { current: 10, max: 10, temp: 0 },
+  profBonus: 2,
+  abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+  saveProf: { str: false, dex: false, con: false, int: false, wis: false, cha: false },
+  skillProf: Object.fromEntries(SKILLS.map(([n]) => [n, { prof: false, expertise: false }]))
+};
+
+let state = loadState();
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return structuredClone(defaultState);
+    const parsed = JSON.parse(raw);
+    return { ...structuredClone(defaultState), ...parsed,
+      hp: { ...defaultState.hp, ...(parsed.hp || {}) },
+      abilities: { ...defaultState.abilities, ...(parsed.abilities || {}) },
+      saveProf: { ...defaultState.saveProf, ...(parsed.saveProf || {}) },
+      skillProf: { ...defaultState.skillProf, ...(parsed.skillProf || {}) }
+    };
+  } catch (e) {
+    return structuredClone(defaultState);
+  }
+}
+
+function saveState() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+}
+
+function mod(score) { return Math.floor((score - 10) / 2); }
+function fmt(n) { return (n >= 0 ? "+" : "") + n; }
+
+function abilityMod(key) { return mod(state.abilities[key] || 10); }
+
+function saveMod(key) {
+  return abilityMod(key) + (state.saveProf[key] ? state.profBonus : 0);
+}
+
+function skillMod(name, abilityKey) {
+  const p = state.skillProf[name] || { prof: false, expertise: false };
+  let bonus = 0;
+  if (p.expertise) bonus = state.profBonus * 2;
+  else if (p.prof) bonus = state.profBonus;
+  return abilityMod(abilityKey) + bonus;
+}
+
+// ---------- Rendering ----------
+
+const grid = document.getElementById("abilitiesGrid");
+ABILITIES.forEach(([key, label]) => {
+  const div = document.createElement("div");
+  div.className = "ability";
+  div.innerHTML = `
+    <label>${label}</label>
+    <input class="score" type="number" data-ability="${key}" value="${state.abilities[key]}" />
+    <div class="mod" data-mod="${key}"></div>
+    <button class="roll" data-roll-ability="${key}">Roll</button>
+  `;
+  grid.appendChild(div);
+});
+
+const savesList = document.getElementById("savesList");
+SAVES.forEach(([key, label]) => {
+  const row = document.createElement("div");
+  row.className = "list-row";
+  row.innerHTML = `
+    <input type="checkbox" data-save-prof="${key}" ${state.saveProf[key] ? "checked" : ""} title="Proficient" />
+    <span></span>
+    <span class="skill-name">${label} Save</span>
+    <span class="total" data-save-total="${key}"></span>
+    <button class="roll" data-roll-save="${key}">Roll</button>
+  `;
+  savesList.appendChild(row);
+});
+
+const skillsList = document.getElementById("skillsList");
+SKILLS.forEach(([name, abilityKey]) => {
+  const p = state.skillProf[name];
+  const row = document.createElement("div");
+  row.className = "list-row";
+  row.innerHTML = `
+    <input type="checkbox" data-skill-prof="${name}" ${p.prof ? "checked" : ""} title="Proficient" />
+    <input type="checkbox" data-skill-expertise="${name}" ${p.expertise ? "checked" : ""} title="Expertise" />
+    <span class="skill-name">${name}</span>
+    <span class="ability-tag">${abilityKey.toUpperCase()}</span>
+    <span class="total" data-skill-total="${name}"></span>
+  `;
+  const btn = document.createElement("button");
+  btn.className = "roll";
+  btn.textContent = "Roll";
+  btn.dataset.rollSkill = name;
+  btn.dataset.rollAbility = abilityKey;
+  row.appendChild(btn);
+  skillsList.appendChild(row);
+});
+
+function renderTotals() {
+  ABILITIES.forEach(([key]) => {
+    document.querySelector(`[data-mod="${key}"]`).textContent = fmt(abilityMod(key));
+  });
+  SAVES.forEach(([key]) => {
+    document.querySelector(`[data-save-total="${key}"]`).textContent = fmt(saveMod(key));
+  });
+  SKILLS.forEach(([name, abilityKey]) => {
+    document.querySelector(`[data-skill-total="${name}"]`).textContent = fmt(skillMod(name, abilityKey));
+  });
+}
+
+function renderFixedFields() {
+  document.getElementById("charName").value = state.name;
+  document.getElementById("hpCurrent").value = state.hp.current;
+  document.getElementById("hpMax").value = state.hp.max;
+  document.getElementById("hpTemp").value = state.hp.temp;
+  document.getElementById("profBonus").value = state.profBonus;
+}
+
+renderFixedFields();
+renderTotals();
+
+// ---------- Input wiring ----------
+
+document.getElementById("charName").addEventListener("input", e => {
+  state.name = e.target.value; saveState();
+});
+document.getElementById("hpCurrent").addEventListener("input", e => {
+  state.hp.current = Number(e.target.value) || 0; saveState();
+});
+document.getElementById("hpMax").addEventListener("input", e => {
+  state.hp.max = Number(e.target.value) || 0; saveState();
+});
+document.getElementById("hpTemp").addEventListener("input", e => {
+  state.hp.temp = Number(e.target.value) || 0; saveState();
+});
+document.getElementById("profBonus").addEventListener("input", e => {
+  state.profBonus = Number(e.target.value) || 0; saveState(); renderTotals();
+});
+
+document.getElementById("abilitiesGrid").addEventListener("input", e => {
+  const key = e.target.dataset.ability;
+  if (!key) return;
+  state.abilities[key] = Number(e.target.value) || 0;
+  saveState(); renderTotals();
+});
+
+document.getElementById("savesList").addEventListener("change", e => {
+  const key = e.target.dataset.saveProf;
+  if (!key) return;
+  state.saveProf[key] = e.target.checked;
+  saveState(); renderTotals();
+});
+
+document.getElementById("skillsList").addEventListener("change", e => {
+  const profKey = e.target.dataset.skillProf;
+  const expKey = e.target.dataset.skillExpertise;
+  if (profKey) state.skillProf[profKey].prof = e.target.checked;
+  if (expKey) state.skillProf[expKey].expertise = e.target.checked;
+  saveState(); renderTotals();
+});
+
+// ---------- Rolling ----------
+
+function rollD20() { return 1 + Math.floor(Math.random() * 20); }
+
+function doRoll(label, modifier) {
+  const d20 = rollD20();
+  const total = d20 + modifier;
+  const entry = {
+    who: state.name || "Unnamed",
+    label,
+    d20,
+    modifier,
+    total,
+    t: Date.now()
+  };
+  addLogEntry(entry);
+  broadcastRoll(entry);
+  notify(entry);
+}
+
+function addLogEntry(entry) {
+  const log = document.getElementById("log");
+  const empty = log.querySelector(".log-empty");
+  if (empty) empty.remove();
+  const row = document.createElement("div");
+  row.className = "log-entry";
+  const d20 = entry.d20;
+  const resultClass = d20 === 20 ? "crit" : d20 === 1 ? "fumble" : "";
+  const flair = d20 === 20 ? " CRIT" : d20 === 1 ? " FUMBLE" : "";
+  row.innerHTML = `
+    <span class="who">${escapeHtml(entry.who)} — ${escapeHtml(entry.label)}</span>
+    <span class="${resultClass}">d20(${d20}) ${fmt(entry.modifier)} = ${entry.total}${flair}</span>
+  `;
+  log.appendChild(row);
+  while (log.children.length > 30) log.removeChild(log.firstChild);
+  log.scrollTop = log.scrollHeight;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+async function broadcastRoll(entry) {
+  if (!OBR.isAvailable) return;
+  try {
+    await OBR.broadcast.sendMessage(ROLL_CHANNEL, entry, { destination: "ALL" });
+  } catch (e) { /* ignore if not in a room yet */ }
+}
+
+function notify(entry) {
+  if (!OBR.isAvailable) return;
+  const d20 = entry.d20;
+  const kind = d20 === 20 ? "SUCCESS" : d20 === 1 ? "ERROR" : "DEFAULT";
+  const flair = d20 === 20 ? " — Crit!" : d20 === 1 ? " — Fumble" : "";
+  OBR.notification.show(
+    `${entry.who}: ${entry.label} = ${entry.total}${flair}`,
+    kind
+  );
+}
+
+document.getElementById("abilitiesGrid").addEventListener("click", e => {
+  const key = e.target.dataset.rollAbility;
+  if (!key) return;
+  const label = ABILITIES.find(a => a[0] === key)[1] + " Check";
+  doRoll(label, abilityMod(key));
+});
+
+document.getElementById("savesList").addEventListener("click", e => {
+  const key = e.target.dataset.rollSave;
+  if (!key) return;
+  const label = SAVES.find(a => a[0] === key)[1] + " Save";
+  doRoll(label, saveMod(key));
+});
+
+document.getElementById("skillsList").addEventListener("click", e => {
+  const name = e.target.dataset.rollSkill;
+  if (!name) return;
+  const abilityKey = e.target.dataset.rollAbility;
+  doRoll(name, skillMod(name, abilityKey));
+});
+
+document.getElementById("logToggle").addEventListener("click", () => {
+  document.getElementById("logToggle").closest(".card").classList.toggle("collapsed");
+});
+
+// ---------- OBR wiring ----------
+
+OBR.onReady(() => {
+  // Show rolls broadcast by other players running this same extension.
+  OBR.broadcast.onMessage(ROLL_CHANNEL, event => {
+    addLogEntry(event.data);
+  });
+  // Prefill the character name from the player's Owlbear name on first run.
+  if (!state.name) {
+    OBR.player.getName().then(n => {
+      if (n && !state.name) {
+        state.name = n;
+        document.getElementById("charName").value = n;
+        saveState();
+      }
+    }).catch(() => {});
+  }
+});
+</script>
+</body>
+</html>
